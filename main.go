@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/francoispqt/onelog"
 	"github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
 	"github.com/kokizzu/goproc"
@@ -12,9 +13,8 @@ import (
 	"github.com/kokizzu/gotro/M"
 	"github.com/kokizzu/gotro/X"
 	"github.com/kokizzu/id64"
-	"github.com/rs/zerolog"
 	sqldblogger "github.com/simukti/sqldb-logger"
-	"github.com/simukti/sqldb-logger/logadapter/zerologadapter"
+	"github.com/simukti/sqldb-logger/logadapter/onelogadapter"
 	"os"
 	"time"
 )
@@ -38,7 +38,7 @@ func init() {
 		dbName,
 	) // mysql -u root -h 127.0.0.1 -P 4000 test
 
-	loggerAdapter := zerologadapter.New(zerolog.New(os.Stdout))
+	loggerAdapter := onelogadapter.New(onelog.New(os.Stdout, onelog.ALL))
 	db := sqldblogger.OpenDriver(myDsn, &mysql.MySQLDriver{}, loggerAdapter /*, ...options */)
 	globalConn = sqlx.NewDb(db, driverDialect)
 

@@ -1,4 +1,4 @@
-# TiDB test
+# TiDB example using golang, sqlx, and migu
 
 ## dependencies
 

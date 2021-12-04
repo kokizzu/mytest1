@@ -14,10 +14,6 @@ echo "codes formatted.."
 go build main.go || ( echo 'has error, exiting..' ; kill 0 )
 echo "codes tested.."
 
-# testing if has "gokil" included
-ag gokil **/*.go && ( echo 'echo should not import previous gokil library..' ; kill 0 )
-echo "imports checked.."
-
 # add and commit all files
 git add .
 git status

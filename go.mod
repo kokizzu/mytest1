@@ -3,18 +3,19 @@ module mytest1
 go 1.17
 
 require (
+	github.com/francoispqt/onelog v0.0.0-20190306043706-8c2bb31b10a4
 	github.com/go-sql-driver/mysql v1.6.0
 	github.com/jmoiron/sqlx v1.3.4
 	github.com/kokizzu/goproc v1.625.1807
 	github.com/kokizzu/gotro v1.1205.400
 	github.com/kokizzu/id64 v1.1114.1245
-	github.com/rs/zerolog v1.24.0
 	github.com/simukti/sqldb-logger v0.0.0-20201125162808-c35f87e285f2
-	github.com/simukti/sqldb-logger/logadapter/zerologadapter v0.0.0-20201125162808-c35f87e285f2
+	github.com/simukti/sqldb-logger/logadapter/onelogadapter v0.0.0-20201125162808-c35f87e285f2
 )
 
 require (
 	github.com/fatih/color v1.13.0 // indirect
+	github.com/francoispqt/gojay v0.0.0-20181220093123-f2cc13a668ca // indirect
 	github.com/goccy/go-yaml v1.9.4 // indirect
 	github.com/kpango/fastime v1.0.17 // indirect
 	github.com/kr/pretty v0.3.0 // indirect
