@@ -60,7 +60,7 @@ func init() {
 }
 
 func main() {
-	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second) // everything must complete in 90s
+	ctx, cancel := context.WithTimeout(context.Background(), 110*time.Second) // everything must complete in 110s
 	defer cancel()
 
 	// NOTE: do not use PanicIf for long running service, handle error normally
@@ -71,26 +71,16 @@ TRUNCATE TABLE users`
 	_, err := globalConn.ExecContext(ctx, truncateQuery)
 	L.PanicIf(err, `ExecContext:TRUNCATE:users`)
 
-	// exec/insert example
-	insertQuery := callerComment(L.CallerInfo()) + `
-INSERT INTO users(uniq) VALUES(?)`
-	for z := 0; z < 100; z++ {
-		//user := Users{Uniq: id64.SID()}
-		//_, err := o.Insert(&user) // &mysql.MySQLError{Number:0x418, Message:"Column 'created_at' cannot be null"}
-		_, err := globalConn.ExecContext(ctx, insertQuery, id64.SID())
-		L.PanicIf(err, `ExecContext:INSERT:users`)
-	}
-
+	const N = 10000
 	start := time.Now()
 	defer func() {
 		fmt.Println()
 		fmt.Println(`Done in `, time.Since(start))
 	}()
 	msTiming := M.SX{}
-	//defer L.Describe(msTiming)
-	const N = 10000
 
-	SetMinMaxTotal := func(key string, t time.Duration) {
+	SetMinMaxTotal := func(key string, start time.Time) {
+		t := time.Since(start)
 		v := msTiming.GetInt(key + ` Min`)
 		if v == 0 || v > int64(t) {
 			msTiming.Set(key+` Min`, t)
@@ -103,19 +93,36 @@ INSERT INTO users(uniq) VALUES(?)`
 		msTiming.Set(key+` Total`, v+int64(t))
 	}
 
+	// exec/insert example
+	insertQuery := callerComment(L.CallerInfo()) + `
+INSERT INTO users(uniq) VALUES(?)`
+	for z := 0; z < 100; z++ {
+		_, err := globalConn.ExecContext(ctx, insertQuery, id64.SID())
+		L.PanicIf(err, `ExecContext:INSERT:users`)
+	}
+	SetMinMaxTotal(`Insert`, start)
+
+	params := []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10} // reuse this slice
+	genParams := func(z int) []int {
+		for y := 0; y < 10; y++ {
+			params[y] = z + y
+		}
+		return params
+	}
+
 	// query/select example scan to map manual
 	for z := 0; z < N; z++ {
 		start := time.Now()
 		cols := []string{`id`, `uniq`, `created_at`, `updated_at`}
 
-		params := []int64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
+		params := genParams(z)
 		sql := callerComment(L.CallerInfo()) + `
 	SELECT ` + A.StrJoin(cols, `,`) + `
 	FROM users
 	WHERE id IN (?)
 		OR uniq LIKE ?
 	LIMIT 20`
-		selectQuery, args, err := sqlx.In(sql, params, `%a%`)
+		selectQuery, args, err := sqlx.In(sql, params, `%`+string(rune('a'+(z)%26))+`%`)
 		L.PanicIf(err, `sqlx.In`)
 		rows, err := globalConn.QueryxContext(ctx, selectQuery, args...)
 		L.PanicIf(err, `QueryxContext:IN_LIKE_QUERY`)
@@ -140,14 +147,14 @@ INSERT INTO users(uniq) VALUES(?)`
 			res = append(res, m)
 		}
 		//L.Describe(res)
-		SetMinMaxTotal(`[]MapManual`, time.Since(start))
+		SetMinMaxTotal(`[]MapManual`, start)
 	} //*/
 
 	// query/select example scan to map
 	for z := 0; z < N; z++ {
 		start := time.Now()
 		cols := []string{`id`, `uniq`, `created_at`, `updated_at`}
-		params := []int64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
+		params := genParams(z)
 		sql := callerComment(L.CallerInfo()) + `
 	SELECT ` + A.StrJoin(cols, `,`) + `
 	FROM users
@@ -172,7 +179,7 @@ INSERT INTO users(uniq) VALUES(?)`
 			res = append(res, row)
 		}
 		//L.Describe(res)
-		SetMinMaxTotal(`[]Map`, time.Since(start))
+		SetMinMaxTotal(`[]Map`, start)
 	} //*/
 
 	// query/select example scan to slice manual
@@ -180,7 +187,7 @@ INSERT INTO users(uniq) VALUES(?)`
 		start := time.Now()
 		cols := []string{`id`, `uniq`, `created_at`, `updated_at`}
 		isStringColumn := []bool{false, true, false, false}
-		params := []int64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
+		params := genParams(z)
 		sql := callerComment(L.CallerInfo()) + `
 SELECT ` + A.StrJoin(cols, `,`) + ` 
 FROM users 
@@ -211,7 +218,7 @@ LIMIT 20`
 			res = append(res, copy)
 		}
 		//L.Describe(res)
-		SetMinMaxTotal(`[]SliceManual`, time.Since(start))
+		SetMinMaxTotal(`[]SliceManual`, start)
 	} //*/
 
 	// query/select example scan to struct
@@ -219,7 +226,7 @@ LIMIT 20`
 		start := time.Now()
 		cols := []string{`id`, `uniq`, `created_at`, `updated_at`}
 		isStringCol := []bool{false, true, false, false}
-		params := []int64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
+		params := genParams(z)
 		sql := callerComment(L.CallerInfo()) + `
 SELECT ` + A.StrJoin(cols, `,`) + ` 
 FROM users 
@@ -246,14 +253,14 @@ LIMIT 20`
 			res = append(res, copy)
 		}
 		//L.Describe(res)
-		SetMinMaxTotal(`[]Slice`, time.Since(start))
+		SetMinMaxTotal(`[]Slice`, start)
 	} //*/
 
 	// query/select example scan to pointer of struct
 	for z := 0; z < N; z++ {
 		start := time.Now()
 		cols := []string{`id`, `uniq`, `created_at`, `updated_at`}
-		params := []int64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
+		params := genParams(z)
 		sql := callerComment(L.CallerInfo()) + `
 SELECT ` + A.StrJoin(cols, `,`) + ` 
 FROM users 
@@ -273,14 +280,14 @@ LIMIT 20`
 			res = append(res, &row)
 		}
 		//L.Describe(res)
-		SetMinMaxTotal(`[]*Struct`, time.Since(start))
+		SetMinMaxTotal(`[]*Struct`, start)
 	} //*/
 
 	// query/select example scan to pointer of struct
 	for z := 0; z < N; z++ {
 		start := time.Now()
 		cols := []string{`id`, `uniq`, `created_at`, `updated_at`}
-		params := []int64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
+		params := genParams(z)
 		sql := callerComment(L.CallerInfo()) + `
 SELECT ` + A.StrJoin(cols, `,`) + ` 
 FROM users 
@@ -301,7 +308,7 @@ LIMIT 20`
 			res = append(res, row)
 		}
 		//L.Describe(res)
-		SetMinMaxTotal(`[]Struct`, time.Since(start))
+		SetMinMaxTotal(`[]Struct`, start)
 	} //*/
 
 	// conclusion: scan to map or slice must convert from &[]uint8 manually when using any pointer interface{} (either to string; or to time.Time -- unless parseTime=true specified)
@@ -316,11 +323,11 @@ LIMIT 20`
 			fmt.Println()
 		}
 		ns := msTiming.GetInt(key)
-		fmt.Printf("%28s %12d ns = %9d µs = %9.2f ms = %7.4f s\n", key, ns, ns/1000, float64(ns)/1000/1000, float64(ns)/1000/1000/1000)
+		fmt.Printf("%28s %12d ns = %9d µs = %10.3f ms = %7.4f s\n", key, ns, ns/1000, float64(ns)/1000/1000, float64(ns)/1000/1000/1000)
 		if S.EndsWith(key, `Total`) {
 			ns := ns / N
 			key = S.Replace(key, `Total`, `Avg`)
-			fmt.Printf("%28s %12d ns = %9d µs = %9.2f ms = %7.4f s\n", key, ns, ns/1000, float64(ns)/1000/1000, float64(ns)/1000/1000/1000)
+			fmt.Printf("%28s %12d ns = %9d µs = %10.3f ms = %7.4f s\n", key, ns, ns/1000, float64(ns)/1000/1000, float64(ns)/1000/1000/1000)
 		}
 	}
 }
