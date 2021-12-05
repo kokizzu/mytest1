@@ -11,7 +11,7 @@ go fmt ./...
 echo "codes formatted.."
 
 # testing if has error
-go build main.go || ( echo 'has error, exiting..' ; kill 0 )
+go build *.go || ( echo 'has error, exiting..' ; kill 0 )
 echo "codes tested.."
 
 # add and commit all files
